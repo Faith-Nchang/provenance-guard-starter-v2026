@@ -184,17 +184,17 @@ The original decision stays in the log unchanged; the appeal is appended after i
 
 ## How I Used AI
 
-**Moment 1**
+**Moment 1: the design trace and the criteria**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I asked Claude Code to break the project into five phases and then to implement Phase 1, the Milestone 1 trace. I told it up front that the five acceptance criteria had to be mine, so I wrote `criteria.md` myself and asked it only to check whether the work was complete.
+- *What came back:* `DESIGN.md`: the seven-step path, both signals with their blind spots, the false-positive trace and the field-by-field `/submit` and `/appeal` contracts. It left max text length as an open decision. When it checked `criteria.md` it noticed that my criterion 5 set a 10,000-character limit that the design notes didn't mention.
+- *What I changed:* I had it update `DESIGN.md` so both documents say 10,000 characters, and I committed the design and criteria together before building anything.
 
-**Moment 2**
+**Moment 2: the style signal and the combining rule**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I asked Claude Code to implement  `stylometry.py`, `scoring.py::combine_signals`, and wiring both into `/submit`, then to run it on clearly-AI, clearly-human, formal-human and lightly-edited-AI inputs.
+- *What came back:* A style signal built from sentence-length spread, type-token ratio and punctuation density, plus a 0.6/0.4 weighted average that pulls toward 0.5 when the signals differ by 0.4 or more. The calibration run separated AI from human (0.696 vs 0.088), but a plain human paragraph scored 0.697 on both signals.
+- *What I changed:* I decided not to tune the weights to make that false positive disappear. It is documented in Signals and Scoring as a real blind spot. I also noticed the disagreement rule never triggered on any of my inputs, so I describe it as untested instead of claiming it works.
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
