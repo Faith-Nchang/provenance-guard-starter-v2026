@@ -229,6 +229,8 @@ def submit():
         return _reject(log_creator, "missing_creator_id", "'creator_id' is required.")
 
     import detector
+    import scoring
+    import stylometry
 
     try:
         model_score = detector.model_signal(text)
@@ -239,10 +241,11 @@ def submit():
 
     content_id = str(uuid.uuid4())
 
-    # Milestone 3 placeholders: the second signal, the combined score and the
-    # label arrive in Milestones 4 and 5.
+    style_score = stylometry.style_signal(text)
+    confidence = scoring.combine_signals(model_score, style_score)
+
+    # Milestone 5 placeholders: the guess and label come from score_to_label.
     guess = "unsure"
-    confidence = model_score
     label = "PLACEHOLDER: label not written yet."
 
     audit.log_decision(
@@ -250,7 +253,7 @@ def submit():
         creator_id=creator_id,
         guess=guess,
         model_score=model_score,
-        style_score=None,
+        style_score=style_score,
         combined_score=confidence,
         label=label,
         status="decided",
@@ -262,7 +265,7 @@ def submit():
         "confidence": confidence,
         "label": label,
         "model_score": model_score,
-        "style_score": None,
+        "style_score": style_score,
     })
 
 

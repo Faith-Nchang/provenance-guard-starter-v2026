@@ -33,6 +33,10 @@ anything together:
 import re
 import statistics
 
+import config
+
+TTR_WINDOW = 100  # words considered for type_token_ratio
+
 
 def sentences(text: str) -> list[str]:
     """Split into sentences. Rough and good enough — given to you."""
@@ -64,8 +68,14 @@ def sentence_length_spread(text: str) -> float:
     `stdev` raises on fewer than two values. Decide what that should return
     before the attack set decides for you.
     """
-    # TODO: replace this
-    return 0.0
+    lengths = [len(words(sent)) for sent in sentences(text)]
+    lengths = [n for n in lengths if n > 0]
+    # One sentence has no spread to measure. Return 0.0 ("no variation") and
+    # let style_signal treat a lone sentence as uninformative instead of AI.
+    if len(lengths) < 2:
+        return 0.0
+    # Coefficient of variation: stdev / mean. Higher means more human.
+    return round(statistics.stdev(lengths) / statistics.mean(lengths), 4)
 
 
 def type_token_ratio(text: str) -> float:
@@ -80,8 +90,12 @@ def type_token_ratio(text: str) -> float:
     directly comparable on it, and if your test inputs vary a lot in length,
     that alone can look like a signal.
     """
-    # TODO: replace this
-    return 0.0
+    # Only the first TTR_WINDOW words count, so a long text isn't penalised
+    # for repeating common words just by being long.
+    tokens = words(text)[:TTR_WINDOW]
+    if not tokens:
+        return 0.0
+    return round(len(set(tokens)) / len(tokens), 4)
 
 
 def punctuation_density(text: str) -> float:
@@ -94,8 +108,15 @@ def punctuation_density(text: str) -> float:
         more interesting than full stops, because they vary more between
         writers.
     """
-    # TODO: replace this
-    return 0.0
+    n_words = len(words(text))
+    if n_words == 0:
+        return 0.0
+    # Everything except the full stop that ends a sentence. Apostrophes are
+    # part of words (words() keeps them), so they aren't counted here.
+    marks = re.findall(r"[,;:!?()\"—–…-]", text)
+    # Higher means more human. Variety of marks counts too: a text that only
+    # ever uses commas is flatter than one that mixes commas, dashes and "?".
+    return round(len(marks) / n_words + 0.01 * len(set(marks)), 4)
 
 
 # ── Combining them ───────────────────────────────────────────────────────────
@@ -122,8 +143,28 @@ def style_signal(text: str) -> float:
     you trust it. Plain and ordinary, not formal: formal prose reads as *human*
     to signal one, and it is plain writing that gets accused.
     """
-    # TODO: replace this
-    return 0.5
+    if len(words(text)) < 2:
+        return 0.5
+
+    def clamp(x: float) -> float:
+        return min(max(x, 0.0), 1.0)
+
+    n_sentences = len(sentences(text))
+    # Each measure becomes an "AI-ness" in 0-1 (higher = more AI-like):
+    #   spread: CV 0.2 or less -> 1.0, CV 0.8 or more -> 0.0
+    #   ttr:    0.50 or less   -> 1.0, 0.85 or more   -> 0.0
+    #   punct:  0.00 -> 1.0,   0.20 or more per word  -> 0.0
+    # A lone sentence has no spread, so that measure falls back to neutral.
+    spread_ai = 0.5 if n_sentences < 2 else clamp(1 - (sentence_length_spread(text) - 0.2) / 0.6)
+    ttr_ai = clamp((0.85 - type_token_ratio(text)) / 0.35)
+    punct_ai = clamp(1 - punctuation_density(text) / 0.20)
+
+    score = (
+        config.STYLE_WEIGHT_SPREAD * spread_ai
+        + config.STYLE_WEIGHT_TTR * ttr_ai
+        + config.STYLE_WEIGHT_PUNCT * punct_ai
+    )
+    return round(clamp(score), 4)
 
 
 if __name__ == "__main__":

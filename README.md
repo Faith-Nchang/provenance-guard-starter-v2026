@@ -39,6 +39,14 @@
 <!-- The path a submission takes, from arriving to the label a reader sees.
      Six or seven steps — this is the trace you wrote in Milestone 1. -->
 
+1. **Request.** A client sends `POST /submit` with `{"text", "creator_id"}`.
+2. **Validation** (`app.py::submit`). Missing, empty, non-string or oversized (over 10,000 characters) `text`, a missing `creator_id`, or a body that isn't a JSON object gets a 400 with an error code. It is logged as a rejection, and neither signal runs.
+3. **Signal one** (`detector.model_signal`). A local GPT-2 model measures how predictable the text is and adds `model_score`.
+4. **Signal two** (`stylometry.style_signal`). It measures the text's shape (sentence-length spread, vocabulary variety, punctuation) and adds `style_score`.
+5. **Combining** (`scoring.combine_signals`). Both scores become one `confidence` between 0 (human) and 1 (AI).
+6. **Labeling** (`scoring.score_to_label`). The confidence maps to one of three labels. *(Not built yet: the response currently carries a placeholder label.)*
+7. **Audit and response.** The decision is written to `logs/audit.jsonl` with a `content_id`, both signal scores and the combined score. The response returns the `content_id`, guess, confidence, label and both signal scores. A writer who disagrees can call `POST /appeal` with that `content_id`.
+
 
 
 ---
@@ -53,36 +61,47 @@
 
 ### Signal one — the model signal
 
-**What it measures:**
+**What it measures:** How predictable the text is to a local GPT-2 model, as perplexity squashed onto 0 to 1 (`detector.py::model_signal`). Higher means more AI-like.
 
-**Why that might differ between human and AI writing:**
+**Why that might differ between human and AI writing:** A language model writes by picking likely next words, so its output is easy for another model to predict. Human writers make odd, specific choices that surprise it.
 
-**What it can't see:**
+**What it can't see:** Authorship. It only sees how likely the words are. Plain, common-word human writing (a younger writer, someone writing in a second language, anyone writing simply) scores as machine-like, while ornate prose full of rare words scores as human. Lightly paraphrased AI text becomes less predictable and slips through. Only the first ~400 tokens are scored, and very short text gives a noisy reading. In my own run, a plain human paragraph about a trip to the market scored 0.759, close to the 0.809 of clearly-AI text.
 
 ### Signal two — the style signal
 
-**What it measures:**
+**What it measures:** The shape of the text, with no understanding of it (`stylometry.py::style_signal`). Three measures, each scaled to an "AI-ness" from 0 to 1 and combined with weights 0.5 / 0.3 / 0.2:
+- sentence-length spread (stdev divided by mean): low spread is AI-like
+- type-token ratio over the first 100 words: low vocabulary variety is AI-like
+- punctuation density (all marks except the sentence-ending full stop, plus a small bonus for variety of marks): sparse, uniform punctuation is AI-like
 
-**Why that might differ between human and AI writing:**
+**Why that might differ between human and AI writing:** Generated prose tends toward even, mid-length sentences and a narrower vocabulary. Human writing is lumpier: a three-word sentence next to a forty-word one, with dashes, question marks and asides.
 
-**What it can't see:**
+**What it can't see:** Meaning. Anything that changes the shape without changing the substance moves it: adding typos, chopping sentences, pasting in a quotation. Short or one-sentence texts have almost no spread to measure (a lone sentence is scored as neutral on that measure). Poetry and lists confuse the sentence splitter, and careful, even-toned human writing can look "AI-like". In my run the plain human paragraph scored 0.603 here, partly because its sentences were similar in length.
 
 ### The combining rule
 
-<!-- Write the rule in words, then give the numbers. What happens when the two
-     signals disagree? -->
+**The rule:** A weighted average of the two scores, favouring the model signal. If the two signals are far apart, the average is pulled halfway toward 0.5, because two methods disagreeing is uncertainty and I would rather return "unsure" than accuse a writer on one signal's word. A wrong accusation costs a writer more than a missed detection costs the site.
 
-**The rule:**
-
-**The numbers:**
+**The numbers** (all in `config.py`):
+- `WEIGHT_MODEL_SIGNAL = 0.6`, `WEIGHT_STYLE_SIGNAL = 0.4`
+- `DISAGREEMENT_GAP = 0.4`: signals at least this far apart count as disagreeing
+- `DISAGREEMENT_PULL = 0.5`: on disagreement, the average moves this fraction of the way to 0.5
+- Inside the style signal: `STYLE_WEIGHT_SPREAD = 0.5`, `STYLE_WEIGHT_TTR = 0.3`, `STYLE_WEIGHT_PUNCT = 0.2`
+- Label thresholds: `HUMAN_THRESHOLD = 0.35`, `AI_THRESHOLD = 0.65`
 
 **Where it lives:** `scoring.py::combine_signals`
 
-<!-- ⚠️ The grader checks your code against that line. If your rule lives
-     somewhere else, say where. -->
+**Calibration run** (`model_score`, `style_score`, combined):
 
-**A case where my two signals split, and what my rule does with it:**
+| Input | model | style | combined |
+|---|---|---|---|
+| Clearly AI | 0.809 | 0.526 | 0.696 |
+| Clearly human | 0.104 | 0.063 | 0.088 |
+| Formal human | 0.334 | 0.321 | 0.329 |
+| Lightly edited AI | 0.672 | 0.456 | 0.585 |
+| Plain human | 0.759 | 0.603 | 0.697 |
 
+**A case where my two signals split, and what my rule does with it:** Lightly edited AI ("Honestly, communication matters a lot in relationships…") scored 0.672 on the model signal and 0.456 on the style signal, a gap of 0.21. That is below the 0.4 gap, so the plain weighted average applies and the combined score is 0.585, in the "unsure" band. The rule's pull toward 0.5 did not trigger on any of my five inputs, so it is untested. The clearest failure is the other direction: the plain human paragraph scored 0.697, above the 0.65 AI threshold, because both signals agreed and the rule has nothing to correct. I did not tune it away. It is the false-positive case my appeal path exists for.
 
 
 ---

@@ -54,8 +54,19 @@ DETECTOR_MAX_TOKENS = 400
 # down BEFORE you code it, and to put the numbers in your README. Whatever you
 # decide, it goes here.
 
-WEIGHT_MODEL_SIGNAL = 0.5
-WEIGHT_STYLE_SIGNAL = 0.5
+WEIGHT_MODEL_SIGNAL = 0.6
+WEIGHT_STYLE_SIGNAL = 0.4
+
+# When the two signals are at least this far apart, the weighted average is
+# pulled this fraction of the way toward 0.5 ("unsure"). Two methods
+# disagreeing IS uncertainty, and a wrong accusation costs more than a miss.
+DISAGREEMENT_GAP = 0.4
+DISAGREEMENT_PULL = 0.5
+
+# Inside the style signal: how much each measure counts. Sum to 1.0.
+STYLE_WEIGHT_SPREAD = 0.5
+STYLE_WEIGHT_TTR = 0.3
+STYLE_WEIGHT_PUNCT = 0.2
 
 
 # ─── Thresholds (Milestone 5) ────────────────────────────────────────────────
