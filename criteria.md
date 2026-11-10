@@ -42,62 +42,97 @@ Two things worth knowing before you pick numbers:
   a **miss**.
 
 ---
-## 1.
+## 1. False positives
 
-<!-- Your criterion. It must name a number. -->
+In each of three trials, at most 1 of 10 pieces I wrote myself may receive
+`guess: "ai"` (the high-confidence AI label). Use the same ten pieces in every
+trial, including plain-language and formal writing.
 
 
 
 **Why this target:**
 
+An incorrect accusation can harm a real writer more than a missed AI submission
+harms the site. A maximum of 10% is a concrete initial target for this small test
+set, not evidence of a production-wide false-positive rate.
 
 
 ---
 
-## 2.
+## 2. Label coverage
 
-<!-- Your criterion. -->
+In each of three trials, a fixed set of 12 valid submissions must produce all
+three guesses (`human`, `unsure`, and `ai`) at least once each. Every response
+must include a non-placeholder, full-sentence label consistent with its guess
+and the configured score thresholds.
 
 
 
 **Why this target:**
 
+Three labels are useful only if actual text can reach each one. Testing through
+`/submit` catches a signal that stays constant or a combined score that cannot
+reach a label, which checking threshold values alone would miss.
 
 
 ---
 
-## 3.
+## 3. Score spread
 
-<!-- Your criterion. -->
+In each of three trials, the mean combined `confidence` of 10 known AI-generated
+passages must exceed the mean for the 10 human-written passages from criterion 1
+by at least 0.20 on the 0-to-1 scale. Fix both sets before testing and match them
+approximately by topic and length; every returned score must be finite and
+between 0 and 1.
 
 
 
 **Why this target:**
 
+A 0.20 gap asks the combined signals to separate the groups meaningfully rather
+than returning nearly the same score for everything. Matching topic and length
+reduces obvious confounding, while the separate false-positive target protects
+individual writers whom a group average could hide.
 
 
 ---
 
-## 4.
+## 4. Appeal path
 
-<!-- Your criterion. -->
+In each of three trials, submit five valid pieces, then appeal each returned
+`content_id` with non-empty reasoning. All 5 appeals must return HTTP 200 and
+`status: "under_review"`; each must append an audit entry containing the matching
+ID, reasoning, and new status while preserving the original decision. An appeal
+for an unknown ID must return HTTP 404 without creating an under-review item.
 
 
 
 **Why this target:**
 
+Every writer needs a reliable way to challenge a decision, so partial success
+is not acceptable. Preserving the decision and recording the appeal makes the
+case traceable for human review; rejecting unknown IDs prevents false confirmations.
 
 
 ---
 
-## 5.
+## 5. Bad input
 
-<!-- Your criterion. -->
+In each of three trials, all nine invalid `/submit` requests must return HTTP
+400 with a JSON error code and readable message: missing `text`, empty `text`,
+whitespace-only `text`, null `text`, numeric `text`, text of 10,001 characters,
+missing `creator_id`, a JSON list instead of an object, and malformed JSON.
+Set the intended text limit to 10,000 characters. None of these requests may
+invoke either scoring signal, create a decision entry, or return HTTP 500.
 
 
 
 **Why this target:**
 
+Rejecting invalid input before scoring avoids crashes and unnecessary model
+work. A 10,000-character limit bounds accepted input size, though it does not
+remove the detector's separate 400-token truncation limit; rejection audit
+entries may still be recorded without pretending a decision was made.
 
 
 ---
