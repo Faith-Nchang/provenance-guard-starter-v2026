@@ -124,12 +124,14 @@
 ```bash
 $ curl -X POST http://127.0.0.1:5000/submit \
   -H "Content-Type: application/json" \
-  -d '{"text": "...", "creator_id": "..."}'
+  -d '{"text": "I went to the market on Saturday and bought apples, bread, and some cheese. The vendor was friendly, and we talked about the weather for a while before I headed home.", "creator_id": "writer_42"}'
 ```
 
 ```json
-
+{"confidence": 0.7593, "content_id": "53374381-3869-4519-9411-18619d3926b0", "guess": "unsure", "label": "PLACEHOLDER: label not written yet.", "model_score": 0.7593, "style_score": null}
 ```
+
+*(Milestone 3 snapshot: only the model signal exists, so confidence, guess and label are placeholders and `style_score` is null. Replace with a fresh run after Milestone 5.)*
 
 **An appeal**
 
@@ -146,11 +148,11 @@ $ curl -X POST http://127.0.0.1:5000/appeal \
 **What the log shows afterwards**
 
 ```bash
-$ curl "http://127.0.0.1:5000/log?limit=3"
+$ curl "http://127.0.0.1:5000/log?limit=1"
 ```
 
 ```json
-
+{"count": 1, "entries": [{"combined_score": 0.7593, "content_id": "53374381-3869-4519-9411-18619d3926b0", "creator_id": "writer_42", "guess": "unsure", "label": "PLACEHOLDER: label not written yet.", "model_score": 0.7593, "status": "decided", "style_score": null, "timestamp": "2026-11-10T21:08:46+00:00"}]}
 ```
 
 ---

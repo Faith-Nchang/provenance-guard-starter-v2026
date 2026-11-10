@@ -33,6 +33,14 @@ import config
 
 app = Flask(__name__)
 
+MAX_TEXT_CHARS = 10_000  # criteria.md #5
+
+
+def _reject(creator_id, code, message):
+    """Refuse a bad /submit request: log the trace, answer 400. No decision is made."""
+    audit.log_rejection(creator_id=creator_id, reason=code)
+    return jsonify({"error": code, "message": message}), 400
+
 
 # ── Rate limiting — UNIT 8 ────────────────────────────────────────────────────
 # Off until you turn it on. In unit 8, Milestone 1:
@@ -199,17 +207,63 @@ def submit():
     what should this do when `text` is missing, empty, or enormous? A crash on
     a malformed input is one of the most common real failures there is.
     """
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return _reject("anonymous", "invalid_json",
+                       "Send a JSON object with 'text' and 'creator_id'.")
 
-    # TODO: delete this and build the route.
+    text = payload.get("text")
+    creator_id = payload.get("creator_id")
+    log_creator = creator_id if isinstance(creator_id, str) and creator_id.strip() else "unknown"
+
+    if "text" not in payload or text is None:
+        return _reject(log_creator, "missing_text", "'text' is required.")
+    if not isinstance(text, str):
+        return _reject(log_creator, "invalid_text", "'text' must be a string.")
+    if not text.strip():
+        return _reject(log_creator, "empty_text", "'text' must not be empty.")
+    if len(text) > MAX_TEXT_CHARS:
+        return _reject(log_creator, "text_too_long",
+                       f"'text' must be at most {MAX_TEXT_CHARS} characters.")
+    if log_creator == "unknown":
+        return _reject(log_creator, "missing_creator_id", "'creator_id' is required.")
+
+    import detector
+
+    try:
+        model_score = detector.model_signal(text)
+    except ValueError as exc:  # too short to score
+        return _reject(creator_id, "text_too_short", str(exc))
+    except detector.DetectorUnavailable as exc:
+        return jsonify({"error": "detector_unavailable", "message": str(exc)}), 503
+
+    content_id = str(uuid.uuid4())
+
+    # Milestone 3 placeholders: the second signal, the combined score and the
+    # label arrive in Milestones 4 and 5.
+    guess = "unsure"
+    confidence = model_score
+    label = "PLACEHOLDER: label not written yet."
+
+    audit.log_decision(
+        content_id=content_id,
+        creator_id=creator_id,
+        guess=guess,
+        model_score=model_score,
+        style_score=None,
+        combined_score=confidence,
+        label=label,
+        status="decided",
+    )
+
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /submit isn't built yet — see the TODO in app.py.",
-        "you_sent": {
-            "text_length": len(payload.get("text", "")),
-            "creator_id": payload.get("creator_id"),
-        },
-    }), 501
+        "content_id": content_id,
+        "guess": guess,
+        "confidence": confidence,
+        "label": label,
+        "model_score": model_score,
+        "style_score": None,
+    })
 
 
 @app.post("/appeal")
