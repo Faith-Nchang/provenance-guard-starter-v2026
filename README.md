@@ -115,14 +115,19 @@
 
 | Label | Score range | The exact text a reader sees |
 |---|---|---|
-| high-confidence human |  |  |
-| unsure |  |  |
-| high-confidence AI |  |  |
+| high-confidence human | 0.00 – 0.35 | We think this was probably written by a person. |
+| unsure | 0.35 – 0.65 | We can't tell whether this was written by a person or with the help of AI. That doesn't mean anything is wrong, and nothing has been decided against you. |
+| high-confidence AI | 0.65 – 1.00 | Our automated check thinks this may have been written with AI. It can be wrong, especially with plain or formal writing. If you wrote it yourself, tell us and a person will take a look. |
+
+A score of exactly 0.35 or below is "human", and 0.65 or above is "AI"; every score in between is "unsure", so there is no gap. All three were reached through `/submit` (scores 0.097, 0.522 and 0.696).
 
 **Why I worded the "unsure" one this way:**
 <!-- It's the hardest of the three. It has to admit uncertainty without
      sounding like an accusation, because the person reading it may well have
      written every word themselves. -->
+
+It says "we can't tell" instead of hinting at a verdict, and it adds that nothing has been decided against the writer, because the person reading it may well have written every word themselves. It states no number, since "0.52" would mean nothing to a writer. The AI label says it "may" have been written with AI, admits it can be wrong, and tells the writer what to do next.
+
 
 
 
@@ -135,44 +140,45 @@
 
 **A submission**
 
-<!-- The response needs content_id, guess, confidence, label, AND both
-     signal scores - model_score and style_score. Unit 8's tools read those
-     two off the response, so leaving them out costs you next unit's
-     diagnostics. -->
-
 ```bash
-$ curl -X POST http://127.0.0.1:5000/submit \
-  -H "Content-Type: application/json" \
-  -d '{"text": "I went to the market on Saturday and bought apples, bread, and some cheese. The vendor was friendly, and we talked about the weather for a while before I headed home.", "creator_id": "writer_42"}'
+$ curl -X POST http://127.0.0.1:5000/submit   -H "Content-Type: application/json"   -d '{"text": "ok so my dog ate my homework again, third time this week, and honestly? mom just laughed. we are all doomed. Anyway, I stayed up till 2 finishing it (again!) and now I am wrecked; coffee helps, barely.", "creator_id": "w1"}'
 ```
 
 ```json
-{"confidence": 0.7593, "content_id": "53374381-3869-4519-9411-18619d3926b0", "guess": "unsure", "label": "PLACEHOLDER: label not written yet.", "model_score": 0.7593, "style_score": null}
+{"confidence": 0.0972, "content_id": "e17f4933-16f8-4299-b0e4-36dabd446154", "guess": "human", "label": "We think this was probably written by a person.", "model_score": 0.1296, "style_score": 0.0485}
 ```
-
-*(Milestone 3 snapshot: only the model signal exists, so confidence, guess and label are placeholders and `style_score` is null. Replace with a fresh run after Milestone 5.)*
 
 **An appeal**
 
 ```bash
-$ curl -X POST http://127.0.0.1:5000/appeal \
-  -H "Content-Type: application/json" \
-  -d '{"content_id": "...", "reasoning": "..."}'
+$ curl -X POST http://127.0.0.1:5000/appeal   -H "Content-Type: application/json"   -d '{"content_id": "e17f4933-16f8-4299-b0e4-36dabd446154", "reasoning": "I wrote this myself about my dog."}'
 ```
 
 ```json
+{"content_id": "e17f4933-16f8-4299-b0e4-36dabd446154", "message": "Thanks. Your appeal has been recorded and this item is now under review.", "status": "under_review"}
+```
 
+An appeal for an id that doesn't exist, and one with no reasoning:
+
+```json
+{"error": "unknown_content_id", "message": "No submission found with content_id 'nope'."}
+{"error": "missing_reasoning", "message": "'reasoning' is required: tell us why you think this is wrong."}
 ```
 
 **What the log shows afterwards**
 
 ```bash
-$ curl "http://127.0.0.1:5000/log?limit=1"
+$ curl "http://127.0.0.1:5000/log?limit=2"
 ```
 
 ```json
-{"count": 1, "entries": [{"combined_score": 0.7593, "content_id": "53374381-3869-4519-9411-18619d3926b0", "creator_id": "writer_42", "guess": "unsure", "label": "PLACEHOLDER: label not written yet.", "model_score": 0.7593, "status": "decided", "style_score": null, "timestamp": "2026-11-10T21:08:46+00:00"}]}
+{"count": 2, "entries": [
+  {"combined_score": 0.0972, "content_id": "e17f4933-16f8-4299-b0e4-36dabd446154", "creator_id": "w1", "guess": "human", "label": "We think this was probably written by a person.", "model_score": 0.1296, "status": "decided", "style_score": 0.0485, "timestamp": "2026-11-10T21:21:26+00:00"},
+  {"content_id": "e17f4933-16f8-4299-b0e4-36dabd446154", "creator_id": "w1", "event": "appeal", "reasoning": "I wrote this myself about my dog.", "status": "under_review", "timestamp": "2026-11-10T21:21:26+00:00"}
+]}
 ```
+
+The original decision stays in the log unchanged; the appeal is appended after it.
 
 ---
 
