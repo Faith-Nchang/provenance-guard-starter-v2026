@@ -1,24 +1,19 @@
-# Paste TEN pieces you actually wrote yourself (not AI, not from the web).
-# Separate pieces with a line containing only three dashes.
-# Mix plain-language and formal writing (criterion 1). Aim for 3-6 sentences each,
-# roughly the length of the AI passages in scenarios.py, on similar topics if you can.
-# Lines starting with '#' are ignored. Don't edit after the "before" run.
-REPLACE ME: piece 1
+Bro, I genuinely don't know what's going on with my my savings.
 ---
-REPLACE ME: piece 2
+Tell me why I studied for a whole week just to get humbled by that exam.
 ---
-REPLACE ME: piece 3
+Atp, I just want to graduate, get my money, go to the gym, and mind my business.
 ---
-REPLACE ME: piece 4
+Bro imagine having $200k just sitting in your account.
 ---
-REPLACE ME: piece 5
+Idc, I just love knowing the work tea.
 ---
-REPLACE ME: piece 6
+Yh, I think I'm slowly realizing that I actually prefer being alone.
 ---
-REPLACE ME: piece 7
+The thing is, I know I'm capable of doing so much better, and that's what annoys me.
 ---
-REPLACE ME: piece 8
+Bro, why do I overanalyze the most random interactions with people?
 ---
-REPLACE ME: piece 9
+I don't even want anything extravagant, I just want to make a lot of money and live my quiet little life.
 ---
-REPLACE ME: piece 10
+Imagine being 25 with a six-figure net worth, a good engineering job, and absolutely nobody disturbing your peace.

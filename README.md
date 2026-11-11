@@ -249,11 +249,20 @@ whose work got caught by it:
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |
+| 1. My own writing flagged as AI | ≤ 1 of 10 get `guess: "ai"` | 0/10 | 0/10 | 0/10 | MET |
+| 2. All three labels reachable | `human`, `unsure`, `ai` each appear in 12 submissions | 3/3 (8 ai, 2 unsure, 2 human) | 3/3 (same) | 3/3 (same) | MET |
+| 3. Score spread | mean(AI) − mean(human) ≥ 0.20 | 0.3095 (0.7047 vs 0.3952) | 0.3095 | 0.3095 | MET |
+| 4. Appeal path | 5 of 5 appeals return 200 + `under_review`, logged, original preserved; unknown ID returns 404 and creates nothing | 5/5, unknown ID 404 | 5/5, unknown ID 404 | 5/5, unknown ID 404 | MET |
+| 5. Bad input | 9 of 9 invalid requests return 400 with JSON error + message; no decision entry; no 500 | 9/9, 0 decision entries | 9/9, 0 decision entries | 9/9, 0 decision entries | MET |
+
+Criteria 1-3 come from `run_eval.py::main` (`results/run_2026-11-10_1937_before.md`). All three trials were identical for every input, as expected, since neither signal is random.
+
+**Caveats on the MET verdicts (not diagnoses of misses):**
+- My ten pieces are one sentence each (about 10-20 tokens), while the AI passages are 3-4 sentences. Criterion 3 says to match length approximately, and I did not. A 0.31 gap might partly be length rather than authorship, and the detector reads short text less steadily. I'm not changing the sets after seeing results.
+- Criterion 1 is met by a thin margin of safety. Six of my ten pieces landed in `unsure`, and two scored close to the 0.65 AI line (0.609 and 0.583). For the 0.583 piece the model signal alone was 0.895, so it was the style signal and the combining rule that kept it out of `ai`. A threshold or style change could flip it.
+- Criterion 2 is met, but the "in-between" texts I wrote (a budget meeting, photosynthesis, a movie review, a team update) mostly landed as `ai` (3 of 4). Formal plain prose scores as AI-like, which is a false-positive risk for formal human writers that criterion 1's set does not cover.
+
+Criteria 4 and 5 come from `run_hand_criteria.py::main` (`results/hand_criteria_2026-11-10_1927_before.md`). How I decided MET: every trial passed every check, so the target held in all three. Caveat on 5: "neither scoring signal runs" is inferred, not observed. Rejected responses carry no `model_score` or `style_score` and no decision entry is written. I did not instrument the signals to prove they were never called.
 
 **Real output from one trial**, pasted as text, naming the file and function
 that produced it:
