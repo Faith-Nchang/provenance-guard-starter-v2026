@@ -196,6 +196,11 @@ The original decision stays in the log unchanged; the appeal is appended after i
 - *What came back:* A style signal built from sentence-length spread, type-token ratio and punctuation density, plus a 0.6/0.4 weighted average that pulls toward 0.5 when the signals differ by 0.4 or more. The calibration run separated AI from human (0.696 vs 0.088), but a plain human paragraph scored 0.697 on both signals.
 - *What I changed:* I decided not to tune the weights to make that false positive disappear. It is documented in Signals and Scoring as a real blind spot. I also noticed the disagreement rule never triggered on any of my inputs, so I describe it as untested instead of claiming it works.
 
+**Moment 3: instruments, my own scenarios, and an honest test set (unit 8)**
+
+- *What I asked for:* I asked Claude Code to  turn on rate limiting and check the audit log, then build the scenarios and run my five criteria three times each.
+- *What came back:* Rate limiting switched on at 10 per minute and 200 per day, with a flood run that went `200 ×10, 429 ×5`. Claude Code found the audit log already had all nine fields and already logged rejections, so it changed nothing there. It wrote `scenarios.py` for criteria 1-3 and a separate `run_hand_criteria.py` for criteria 4 and 5, because `run_eval.py` can't send malformed JSON or chain a submit into an appeal.
+
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
 ---
@@ -267,11 +272,56 @@ Criteria 4 and 5 come from `run_hand_criteria.py::main` (`results/hand_criteria_
 **Real output from one trial**, pasted as text, naming the file and function
 that produced it:
 
-```json
+Criteria 1 and 3, trial 1, first inputs (`label` text omitted for length). Produced by `run_eval.py::main` calling `app.py::submit`; file `results/run_2026-11-10_1937_before.md`.
 
+```json
+// criterion 1: my own writing (first 3 of 10; 0 of 10 were "ai")
+[
+ {"status": 200, "guess": "unsure", "confidence": 0.5282, "model_score": 0.6425, "style_score": 0.3567, "sent": "Bro, I genuinely don't know what's going on with my my savings."},
+ {"status": 200, "guess": "unsure", "confidence": 0.4233, "model_score": 0.4055, "style_score": 0.45,   "sent": "Tell me why I studied for a whole week just to get humbled by that exa"},
+ {"status": 200, "guess": "unsure", "confidence": 0.4542, "model_score": 0.5903, "style_score": 0.25,   "sent": "Atp, I just want to graduate, get my money, go to the gym, and mind my"}
+]
+
+// criterion 2: label coverage, guesses and confidence for all 12 (labels are full sentences)
+ai 0.6674 | ai 0.7678 | ai 0.7139 | ai 0.7517 | unsure 0.3704 | human 0.2989
+unsure 0.4289 | human 0.2602 | ai 0.655 | ai 0.7478 | ai 0.6635 | ai 0.6743
+
+// criterion 3: AI passages (first 2 of 10)
+[
+ {"status": 200, "guess": "ai", "confidence": 0.6674, "model_score": 0.7596, "style_score": 0.5291, "sent": "Remote work has transformed the modern workplace in significant ways. "},
+ {"status": 200, "guess": "ai", "confidence": 0.7579, "model_score": 0.8737, "style_score": 0.5841, "sent": "Sleep is essential for both physical and mental health. Adults general"}
+]
+```
+
+Criteria 4 and 5, trial 1. Produced by `run_hand_criteria.py::trial_appeal` and `::trial_bad_input` calling `app.py::appeal` and `app.py::submit`; file `results/hand_criteria_2026-11-10_1927_before.md`.
+
+```json
+// criterion 4: one of five appeals, then the unknown-ID check
+{"submit_status": 200, "content_id": "0213c2ef-9f2b-493a-a0e2-87547bd971f8", "appeal_status": 200,
+ "appeal_body": {"content_id": "0213c2ef-9f2b-493a-a0e2-87547bd971f8", "status": "under_review",
+                 "message": "Thanks. Your appeal has been recorded and this item is now under review."},
+ "original_entries": 1, "appeal_entries": 1, "pass": true}
+{"status": 404, "body": {"error": "unknown_content_id", "message": "No submission found with content_id '4e657f93-2f4c-4789-a6a2-f1b184233c41'."}, "entries_created": 0}
+
+// criterion 5: all nine returned 400 with {"error": ..., "message": ...}; 0 new decision entries
+missing text            -> 400 missing_text
+empty text              -> 400 empty_text
+whitespace-only text    -> 400 empty_text
+null text               -> 400 missing_text
+numeric text            -> 400 invalid_text
+10,001 characters       -> 400 text_too_long
+missing creator_id      -> 400 missing_creator_id
+JSON list               -> 400 invalid_json
+malformed JSON          -> 400 invalid_json
 ```
 
 **Diagnoses**
+
+None of my five criteria was missed in any trial, so there is no miss to diagnose from them. The diagnoses for broken attack-set inputs go here once the attack run is done.
+
+*Do my criteria prove the service works?* No. They show the service meets the targets I wrote, and those targets are narrow:
+- My own-writing set is ten casual one-sentence texts, so it doesn't test formal writers.
+- When I mixed in four plain formal texts to test label coverage, three scored `ai`. If criterion 1 had used formal writing, I would probably have missed it. I think my first-unit targets were set against the writing I expected to produce, not the writing real users produce. If I tightened one criterion it would be criterion 1: include formal human writing of a realistic length, and add a length-matched set for criterion 3.
 
 <!-- For each miss AND each broken attack: the stage and the mechanism.
 
@@ -314,15 +364,19 @@ that produced it:
 
 ## What's Still Broken
 
-<!-- For each attack still getting through and each criterion still missed:
-     what you'd do, and why you stopped. -->
+<!-- Attack-set items go here after the attack run and the improvement. -->
+
+**From my own criteria (no criterion missed, but these are real weaknesses):**
+- **Formal human writing reads as AI.** Three of four plain formal texts I wrote for label coverage scored `ai` (0.655-0.748). I'd fix this first, by checking formal human writing against the style signal and widening the unsure band. I haven't, because the unit allows one change and it has to follow the attack-run diagnosis.
+- **My false-positive margin is thin.** Two of my ten pieces scored 0.583 and 0.609, close to the 0.65 AI line. One of them had a model score of 0.895 and was only kept out of `ai` by the style signal.
+- **Per-`creator_id` limiting is easy to dodge.** A script that sends a fresh `creator_id` with every request gets a fresh quota each time. I'd limit by address as well, but that treats a shared household or campus network as one caller. I left it because the unit only asks for per-address or per-creator limits and I didn't build the second.
 
 
 
 **The trade I'd make if this ran for real:**
 
-<!-- Two sentences. Fewer wrong accusations means more AI text getting through.
-     Say which way you'd go and WHO PAYS FOR IT. -->
+<!-- DRAFT from Claude Code: edit this so it is your own call. -->
+If this ran for real, I'd keep the unsure band wide and accept that more AI text gets through, because a wrongly accused writer loses their reputation and their work while a missed AI submission costs the site little. The people who pay are the platform's honest readers, who see more unlabelled AI text, and the writers whose style is formal, plain or non-native, who are the ones this detector is most likely to get wrong.
 
 
 
