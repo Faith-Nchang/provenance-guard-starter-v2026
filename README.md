@@ -202,25 +202,22 @@ The original decision stays in the log unchanged; the appeal is appended after i
 
 ## Rate Limiting
 
-**My limits:** ___ per minute, ___ per day
+**My limits:** 10 per minute, 200 per day
 
 **Why those numbers and not others:**
-<!-- Think about two people: a real writer submitting their own work a few
-     times an hour, and a script sending a thousand variations to map your
-     thresholds. Your numbers have to be liveable for the first and hostile to
-     the second. -->
+A real writer submits a piece, reads the label, maybe edits and resubmits. That is a handful of submissions an hour, so 10 a minute never gets in their way, even when they paste several drafts in a row. A script mapping my thresholds needs hundreds or thousands of variations. At 10 a minute it manages 600 an hour, and the 200/day cap stops it after about 20 minutes of sustained sending and keeps it stopped until the window resets. The daily cap does the real work against threshold-mapping; the per-minute cap mostly stops bursts, and it protects the service because each submission runs GPT-2 inline and takes a second or two. I did not go lower because a false 429 on a real writer is a wrong accusation of a different kind.
 
-**What a caller counts as:** <!-- per address, or per creator_id? They fail
-differently — one script can look like a thousand callers, and one household
-can look like one. -->
+**What a caller counts as:** the `creator_id` in the request body, falling back to the caller's IP address when `creator_id` is missing or not a string (`rate_limit_key` in `app.py`). One script using a different `creator_id` per request would get a fresh quota each time, so this limit is weak against that. The IP fallback only catches requests with no usable `creator_id`.
 
 **The run of status codes when I pushed past it:**
 
-<!-- python run_attacks.py --flood 15 -->
+`python run_attacks.py --flood 15` (full report in `results/flood_2026-11-10_1922.md`)
 
 ```
-
+200 200 200 200 200 200 200 200 200 200 429 429 429 429 429
 ```
+
+The five rejections appear in `logs/audit.jsonl` as `event: rejected, reason: rate_limited, limit: "10 per 1 minute"`.
 
 ---
 
