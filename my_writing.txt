@@ -1,0 +1,24 @@
+# Paste TEN pieces you actually wrote yourself (not AI, not from the web).
+# Separate pieces with a line containing only three dashes.
+# Mix plain-language and formal writing (criterion 1). Aim for 3-6 sentences each,
+# roughly the length of the AI passages in scenarios.py, on similar topics if you can.
+# Lines starting with '#' are ignored. Don't edit after the "before" run.
+REPLACE ME: piece 1
+---
+REPLACE ME: piece 2
+---
+REPLACE ME: piece 3
+---
+REPLACE ME: piece 4
+---
+REPLACE ME: piece 5
+---
+REPLACE ME: piece 6
+---
+REPLACE ME: piece 7
+---
+REPLACE ME: piece 8
+---
+REPLACE ME: piece 9
+---
+REPLACE ME: piece 10
